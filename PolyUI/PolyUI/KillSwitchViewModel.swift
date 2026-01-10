@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import Combine
 
 // ViewModel: Connects View to Model. Holds State.
 @MainActor
@@ -13,12 +14,12 @@ class KillSwitchViewModel: ObservableObject {
     private var timer: Timer?
     
     init() {
-        startPolling()
+      startPolling()
     }
     
     func startPolling() {
         // Poll every 5 seconds to check system health
-        timer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 await self?.checkSystemHealth()
             }

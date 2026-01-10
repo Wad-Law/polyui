@@ -17,9 +17,7 @@ struct KillResponse: Codable {
 }
 
 class PolyOpsClient {
-    // For Simulator/Local Testing. Connects to localhost:3000
-    // If running on real device, change this to your Mac's LAN IP (e.g. http://192.168.1.5:3000)
-    let baseURL = "http://127.0.0.1:3000"
+    let baseURL = "http://127.0.0.1:3001"
     
     func checkHealth() async throws -> Bool {
         guard let url = URL(string: "\(baseURL)/health") else { return false }

@@ -4,7 +4,7 @@ import SwiftUI
 struct PolyUIApp: App {
     var body: some Scene {
         WindowGroup {
-            KillSwitchView()
+            KillSwitchView(viewModel: KillSwitchViewModel())
         }
     }
 }

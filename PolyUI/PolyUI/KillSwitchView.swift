@@ -1,78 +1,102 @@
 import SwiftUI
 
 struct KillSwitchView: View {
-    @StateObject private var viewModel = KillSwitchViewModel()
+    @StateObject private var viewModel: KillSwitchViewModel
+    
+    init(viewModel: KillSwitchViewModel) {
+        _viewModel = StateObject(wrappedValue: viewModel)
+    }
     
     var body: some View {
-        ZStack {
-            // Background Color
-            Color(viewModel.isHalted ? .black : .white)
-                .edgesIgnoringSafeArea(.all)
-            
-            VStack(spacing: 40) {
-                // Header
-                Text(viewModel.isHalted ? "SYSTEM HALTED" : "SYSTEM ACTIVE")
-                    .font(.system(size: 32, weight: .bold, design: .monospaced))
-                    .foregroundColor(viewModel.isHalted ? .red : .green)
-                
-                Text("Status: \(viewModel.systemStatus)")
-                    .font(.caption)
-                    .foregroundColor(.gray)
-                
-                Spacer()
-                
-                // Big Red Button
-                if !viewModel.isHalted {
-                    Button(action: {
-                        viewModel.triggerKillSwitch()
-                    }) {
-                        ZStack {
-                            Circle()
-                                .fill(Color.red)
-                                .frame(width: 250, height: 250)
-                                .shadow(color: .red.opacity(0.6), radius: 20, x: 0, y: 0)
-                            
-                            if viewModel.isProcessing {
-                                ProgressView()
-                                    .scaleEffect(2.0)
-                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            } else {
-                                Text("WIPE")
-                                    .font(.system(size: 40, weight: .black, design: .rounded))
-                                    .foregroundColor(.white)
-                            }
+        NavigationStack {
+            Form {
+                // Section 1: System Status
+                Section(header: Text("System Health")) {
+                    HStack {
+                        Label("Status", systemImage: iconName)
+                            .foregroundColor(.primary)
+                        Spacer()
+                        Text(viewModel.systemStatus)
+                            .foregroundColor(statusColor)
+                            .fontWeight(.medium)
+                    }
+                    
+                    if viewModel.isHalted {
+                        HStack {
+                            Image(systemName: "exclamationmark.octagon.fill")
+                                .foregroundColor(.red)
+                            Text("Trading Suspended")
+                                .bold()
+                                .foregroundColor(.red)
                         }
                     }
-                    .padding()
-                } else {
-                    Image(systemName: "exclamationmark.shield.fill")
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 150, height: 150)
-                        .foregroundColor(.red)
-                    
-                    Text("All Trading Suspended")
-                        .font(.title2)
-                        .foregroundColor(.red)
                 }
                 
-                Spacer()
+                // Section 2: Actions
+                Section(header: Text("Emergency Controls"), footer: Text("This action will immediately halt all trading algorithms and cancel open orders.")) {
+                    if !viewModel.isHalted {
+                        Button(role: .destructive, action: {
+                            viewModel.triggerKillSwitch()
+                        }) {
+                            if viewModel.isProcessing {
+                                ProgressView()
+                            } else {
+                                Label("Trigger Kill Switch", systemImage: "power")
+                                    .frame(maxWidth: .infinity)
+                            }
+                        }
+                        .disabled(viewModel.isProcessing)
+                    } else {
+                        Label("System Halted", systemImage: "lock.fill")
+                            .foregroundColor(.secondary)
+                    }
+                }
                 
+                // Section 3: Error Reporting
                 if let error = viewModel.errorMessage {
-                    Text(error)
-                        .foregroundColor(.white)
-                        .padding()
-                        .background(Color.red)
-                        .cornerRadius(8)
+                    Section {
+                        HStack {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.red)
+                            Text(error)
+                                .foregroundColor(.red)
+                                .font(.footnote)
+                        }
+                    }
                 }
             }
-            .padding()
+            .navigationTitle("PolyControl")
+            .refreshable {
+                // Pull to refresh
+                 await viewModel.checkSystemHealth()
+            }
+        }
+    }
+    
+    // Helper properties for UI logic
+    var statusColor: Color {
+        if viewModel.isHalted { return .red }
+        switch viewModel.systemStatus {
+        case "Online": return .green
+        case "Preview Mode": return .blue
+        case "Unreachable", "Error": return .orange
+        default: return .gray
+        }
+    }
+    
+    var iconName: String {
+        switch viewModel.systemStatus {
+        case "Online": return "network"
+        case "Unreachable", "Error": return "network.slash"
+        default: return "questionmark.circle"
         }
     }
 }
 
+@MainActor
 struct KillSwitchView_Previews: PreviewProvider {
     static var previews: some View {
-        KillSwitchView()
+        let vm = KillSwitchViewModel()
+        KillSwitchView(viewModel: vm)
     }
 }
