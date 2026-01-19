@@ -33,8 +33,11 @@ struct KillSwitchView: View {
                 }
                 
                 // Section 2: Actions
-                Section(header: Text("Emergency Controls"), footer: Text("This action will immediately halt all trading algorithms and cancel open orders.")) {
+                Section(header: Text("Emergency Controls"), footer: Text("This action will immediately halt all trading algorithms. If liquidation is enabled, all positions will be sold at market price.")) {
                     if !viewModel.isHalted {
+                        Toggle("Liquidate All Open Positions", isOn: $viewModel.shouldLiquidate)
+                            .toggleStyle(SwitchToggleStyle(tint: .red))
+                        
                         Button(role: .destructive, action: {
                             viewModel.triggerKillSwitch()
                         }) {
@@ -65,7 +68,7 @@ struct KillSwitchView: View {
                     }
                 }
             }
-            .navigationTitle("PolyControl")
+            .navigationTitle("Risk")
             .refreshable {
                 // Pull to refresh
                  await viewModel.checkSystemHealth()

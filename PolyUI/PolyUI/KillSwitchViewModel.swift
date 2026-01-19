@@ -5,6 +5,7 @@ import Combine
 // ViewModel: Connects View to Model. Holds State.
 @MainActor
 class KillSwitchViewModel: ObservableObject {
+    @Published var shouldLiquidate: Bool = false
     @Published var isHalted: Bool = false
     @Published var errorMessage: String? = nil
     @Published var isProcessing: Bool = false
@@ -43,7 +44,11 @@ class KillSwitchViewModel: ObservableObject {
         
         Task {
             do {
-                let response = try await client.triggerKillSwitch(operatorId: "PolyUI-User", reason: "Manual Kill Switch Activation")
+                let response = try await client.triggerKillSwitch(
+                    operatorId: "PolyUI-User",
+                    reason: "Manual Kill Switch Activation",
+                    liquidate: shouldLiquidate
+                )
                 
                 if response.success {
                     self.isHalted = true

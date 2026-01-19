@@ -9,6 +9,7 @@ enum SystemStatus: String, Codable {
 struct KillRequest: Codable {
     let operator_id: String
     let reason: String
+    let liquidate: Bool
 }
 
 struct KillResponse: Codable {
@@ -17,7 +18,7 @@ struct KillResponse: Codable {
 }
 
 class PolyOpsClient {
-    let baseURL = "http://127.0.0.1:3001"
+    let baseURL = "https://polyops.wad-law.net"
     
     func checkHealth() async throws -> Bool {
         guard let url = URL(string: "\(baseURL)/health") else { return false }
@@ -25,7 +26,7 @@ class PolyOpsClient {
         return (response as? HTTPURLResponse)?.statusCode == 200
     }
     
-    func triggerKillSwitch(operatorId: String, reason: String) async throws -> KillResponse {
+    func triggerKillSwitch(operatorId: String, reason: String, liquidate: Bool) async throws -> KillResponse {
         guard let url = URL(string: "\(baseURL)/api/v1/system/kill") else {
             throw URLError(.badURL)
         }
@@ -34,7 +35,7 @@ class PolyOpsClient {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
-        let payload = KillRequest(operator_id: operatorId, reason: reason)
+        let payload = KillRequest(operator_id: operatorId, reason: reason, liquidate: liquidate)
         request.httpBody = try JSONEncoder().encode(payload)
         
         let (data, _) = try await URLSession.shared.data(for: request)
