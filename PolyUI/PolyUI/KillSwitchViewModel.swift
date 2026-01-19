@@ -15,22 +15,40 @@ class KillSwitchViewModel: ObservableObject {
     private var timer: Timer?
     
     init() {
-      startPolling()
-    }
-    
-    func startPolling() {
-        // Poll every 5 seconds to check system health
-        timer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                await self?.checkSystemHealth()
-            }
+        // Start persistent connection immediately
+        Task {
+            await startMonitoring()
         }
     }
     
+    func startMonitoring() async {
+        // Infinite loop to handle reconnections if the stream ends
+        while true {
+            self.systemStatus = "Connecting..."
+            do {
+                for try await state in client.monitorSystemStatus() {
+                    // Update State based on push data
+                    self.systemStatus = state.mode.starts(with: "halted") ? "Halted" : "Online"
+                    self.isHalted = state.mode.starts(with: "halted")
+                }
+            } catch {
+                self.systemStatus = "Disconnected"
+                print("WebSocket Error: \(error)")
+            }
+            
+            // Wait before reconnecting
+            try? await Task.sleep(nanoseconds: 3 * 1_000_000_000)
+        }
+    }
+    
+    // Kept for manual refresh (Verify connectivity)
     func checkSystemHealth() async {
         do {
             let isHealthy = try await client.checkHealth()
-            self.systemStatus = isHealthy ? "Online" : "Unreachable"
+            // Only update status if we aren't already halted (WS is source of truth)
+            if !isHalted {
+                self.systemStatus = isHealthy ? "Online" : "Unreachable"
+            }
         } catch {
             self.systemStatus = "Error"
         }
