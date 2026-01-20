@@ -27,12 +27,18 @@ class KillSwitchViewModel: ObservableObject {
             self.systemStatus = "Connecting..."
             do {
                 for try await state in client.monitorSystemStatus() {
-                    // Update State based on push data
+                    // Update State based on push data (Ignore generic hello messages)
+                    if state.mode == "DEBUG_CONNECTING" { continue }
+                    
                     self.systemStatus = state.mode.starts(with: "halted") ? "Halted" : "Online"
                     self.isHalted = state.mode.starts(with: "halted")
                 }
             } catch {
-                self.systemStatus = "Disconnected"
+                if let urlError = error as? URLError, urlError.code == .cannotParseResponse {
+                     self.systemStatus = urlError.localizedDescription // "server Error: ..."
+                } else {
+                     self.systemStatus = "Disconnected"
+                }
                 print("WebSocket Error: \(error)")
             }
             
@@ -54,7 +60,7 @@ class KillSwitchViewModel: ObservableObject {
         }
     }
     
-    func triggerKillSwitch() {
+    func setSystemState(active: Bool) {
         guard !isProcessing else { return }
         
         isProcessing = true
@@ -62,14 +68,20 @@ class KillSwitchViewModel: ObservableObject {
         
         Task {
             do {
-                let response = try await client.triggerKillSwitch(
+                let stateStr = active ? "active" : "halted"
+                let liq = active ? false : shouldLiquidate
+                let reason = active ? "Manual Resume" : "Manual Kill Switch"
+                
+                let response = try await client.setSystemState(
                     operatorId: "PolyUI-User",
-                    reason: "Manual Kill Switch Activation",
-                    liquidate: shouldLiquidate
+                    reason: reason,
+                    state: stateStr,
+                    liquidate: liq
                 )
                 
                 if response.success {
-                    self.isHalted = true
+                    // Optimistic update
+                    self.isHalted = !active
                 } else {
                     self.errorMessage = "Failed: \(response.message)"
                 }

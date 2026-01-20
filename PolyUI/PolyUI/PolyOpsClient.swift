@@ -6,13 +6,21 @@ struct SystemStatusResponse: Codable, Sendable {
     let active_strategies: Int
 }
 
-struct KillRequest: Codable, Sendable {
+struct SetStateRequest: Codable, Sendable {
     let operator_id: String
     let reason: String
+    let state: String // "active" or "halted"
     let liquidate: Bool
+    
+    enum CodingKeys: String, CodingKey {
+        case operator_id = "operator"
+        case reason
+        case state
+        case liquidate
+    }
 }
 
-struct KillResponse: Codable, Sendable {
+struct SetStateResponse: Codable, Sendable {
     let success: Bool
     let message: String
 }
@@ -44,11 +52,17 @@ final class PolyOpsClient: Sendable {
                             switch message {
                                 case .string(let text):
                                     if let data = text.data(using: .utf8) {
+                                        if text.starts(with: "Error:") {
+                                            print("Server Error: \(text)")
+                                            continuation.finish(throwing: URLError(.cannotParseResponse, userInfo: [NSLocalizedDescriptionKey: text]))
+                                            return
+                                        }
+                                        
                                         do {
                                             let status = try JSONDecoder().decode(SystemStatusResponse.self, from: data)
                                             continuation.yield(status)
                                         } catch {
-                                            print("JSON Parsing Error: \(error)")
+                                            print("JSON Parsing Error: \(error), Text: \(text)")
                                         }
                                     }
                                 default:
@@ -71,19 +85,24 @@ final class PolyOpsClient: Sendable {
         }
     }
     
-    func triggerKillSwitch(operatorId: String, reason: String, liquidate: Bool) async throws -> KillResponse {
-        guard let url = URL(string: "\(baseURL)/api/v1/system/kill") else {
+    func setSystemState(operatorId: String, reason: String, state: String, liquidate: Bool) async throws -> SetStateResponse {
+        guard let url = URL(string: "\(baseURL)/api/v1/system/state") else {
             throw URLError(.badURL)
         }
-        
+                
         var request = URLRequest(url: url)
+
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        let payload = KillRequest(operator_id: operatorId, reason: reason, liquidate: liquidate)
+     
+        let payload = SetStateRequest(operator_id: operatorId, reason: reason, state: state, liquidate: liquidate)
         request.httpBody = try JSONEncoder().encode(payload)
         
-        let (data, _) = try await URLSession.shared.data(for: request)
-        return try JSONDecoder().decode(KillResponse.self, from: data)
+        let config = URLSessionConfiguration.ephemeral
+        config.timeoutIntervalForRequest = 10
+        let session = URLSession(configuration: config)
+        let (data, _) = try await session.data(for: request)
+        
+        return try JSONDecoder().decode(SetStateResponse.self, from: data)
     }
 }

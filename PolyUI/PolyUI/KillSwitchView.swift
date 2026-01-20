@@ -1,10 +1,10 @@
 import SwiftUI
 
 struct KillSwitchView: View {
-    @StateObject private var viewModel: KillSwitchViewModel
+    @ObservedObject var viewModel: KillSwitchViewModel
     
     init(viewModel: KillSwitchViewModel) {
-        _viewModel = StateObject(wrappedValue: viewModel)
+        self.viewModel = viewModel
     }
     
     var body: some View {
@@ -33,13 +33,13 @@ struct KillSwitchView: View {
                 }
                 
                 // Section 2: Actions
-                Section(header: Text("Emergency Controls"), footer: Text("This action will immediately halt all trading algorithms. If liquidation is enabled, all positions will be sold at market price.")) {
+                Section(header: Text("Emergency Controls"), footer: Text(viewModel.isHalted ? "Resume trading to restart algorithms." : "This action will immediately halt all trading algorithms. If liquidation is enabled, all positions will be sold at market price.")) {
                     if !viewModel.isHalted {
                         Toggle("Liquidate All Open Positions", isOn: $viewModel.shouldLiquidate)
                             .toggleStyle(SwitchToggleStyle(tint: .red))
                         
                         Button(role: .destructive, action: {
-                            viewModel.triggerKillSwitch()
+                            viewModel.setSystemState(active: false)
                         }) {
                             if viewModel.isProcessing {
                                 ProgressView()
@@ -50,8 +50,19 @@ struct KillSwitchView: View {
                         }
                         .disabled(viewModel.isProcessing)
                     } else {
-                        Label("System Halted", systemImage: "lock.fill")
-                            .foregroundColor(.secondary)
+                        Button(action: {
+                            viewModel.setSystemState(active: true)
+                        }) {
+                            if viewModel.isProcessing {
+                                ProgressView()
+                            } else {
+                                Label("Resume Trading", systemImage: "play.fill")
+                                    .frame(maxWidth: .infinity)
+                                    .foregroundColor(.white)
+                            }
+                        }
+                        .listRowBackground(Color.green) // Make the whole row green
+                        .disabled(viewModel.isProcessing)
                     }
                 }
                 
