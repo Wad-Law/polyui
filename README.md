@@ -60,3 +60,123 @@ We follow a hierarchical, list-based "Settings App" navigation pattern. This ens
 -   **Scope**: Frontend Visualization, Operator Dashboard.
 -   **Out of Scope**: Backend Logic, Data Aggregation, Direct Database Access.
 -   **Dependency**: Strictly coupled to `polyops` API via Cloudflare Tunnel.
+
+---
+
+## ⚠️ Operational Considerations
+
+### Network Resilience
+
+**WebSocket Connection Management**
+- **Current**: Automatic reconnection with exponential backoff
+- **Enhancement**: Display connection status indicator in UI
+  - 🟢 Connected
+  - 🟡 Reconnecting...
+  - 🔴 Disconnected (with retry countdown)
+
+**Offline Mode**
+- **Current**: App requires active connection to PolyOps
+- **Consideration**: Cache last-known system state for offline viewing
+- **Limitation**: Control actions (kill switch) require online connection
+
+### Error Handling & User Feedback
+
+**Network Failures**
+- **Pattern**: Show user-friendly error messages
+  - ✅ "No internet connection" (not "URLError -1009")
+  - ✅ "Server unreachable. Check VPN?" (not "Connection timeout")
+
+**Action Confirmation**
+- **Critical Actions**: Kill switch should require double confirmation
+  ```swift
+  .confirmationDialog("Emergency Halt", isPresented: $showingKillConfirmation) {
+      Button("Halt System", role: .destructive) {
+          Task { await triggerKillSwitch() }
+      }
+  }
+  ```
+
+### Security & Authentication
+
+**Current State**
+- No authentication (trust model)
+- Endpoint URLs hardcoded in app
+
+**Production Enhancements**
+- **API Key**: Store securely in iOS Keychain
+- **Biometric Auth**: Require Face ID/Touch ID for kill switch
+- **Certificate Pinning**: Pin PolyOps TLS certificate to prevent MITM
+
+**Pattern**:
+```swift
+import LocalAuthentication
+
+func authenticateUser() async -> Bool {
+    let context = LAContext()
+    do {
+        return try await context.evaluatePolicy(
+            .deviceOwnerAuthenticationWithBiometrics,
+            localizedReason: "Authenticate to halt trading system"
+        )
+    } catch {
+        return false
+    }
+}
+```
+
+### Data Privacy
+
+**No Sensitive Data Storage**
+- ✅ App doesn't cache API keys or credentials
+- ✅ No persistent storage of financial data
+- ✅ WebSocket streams are ephemeral (not logged)
+
+**GDPR Compliance**
+- Operator IDs in kill switch requests
+- **Consideration**: Allow users to clear operator ID from device
+
+### Performance & Battery
+
+**WebSocket Efficiency**
+- **Current**: Persistent connection for real-time updates
+- **Battery Impact**: Moderate (network activity keeps radio active)
+- **Optimization**: Consider WebSocket heartbeat tuning (reduce frequency when app is backgrounded)
+
+**SwiftUI Performance**
+- Avoid expensive recomputations on every status update
+- Use `@Observable` instead of deprecated `@ObservedObject` ✅
+
+### Testing & Quality Assurance
+
+**Manual Testing Checklist**
+- [ ] Kill switch triggers system halt
+- [ ] WebSocket reconnects after network interruption
+- [ ] UI updates reflect real-time status changes
+- [ ] Error messages are user-friendly
+- [ ] App handles PolyOps downtime gracefully
+
+**Automated Testing**
+- **Current**: Build validation in CI ✅
+- **Gap**: UI tests, mock API tests
+- **Tool**: XCTest for UI automation
+
+### Deployment & Distribution
+
+**TestFlight Beta Testing**
+- Internal testing before production release
+- Gather feedback from operators on usability
+
+**App Store Considerations**
+- If distributing via App Store:
+  - Ensure compliance with financial app guidelines
+  - Disclose risk warnings (automated trading)
+
+**Enterprise Distribution**
+- Alternative: Ad-hoc or Enterprise provisioning (no App Store)
+- Better for proprietary trading tools
+
+---
+
+## 📚 Documentation
+
+See [CLAUDE.md](CLAUDE.md) for iOS development guidelines, SwiftUI patterns, and API integration details.
