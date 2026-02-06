@@ -289,18 +289,20 @@ final class MockPolyOpsClient: PolyOpsClient {
 ### CI/CD
 
 GitHub Actions workflow (`.github/workflows/ios-ci.yml`):
-- Runs on: `macos-latest`
-- Xcode Version: 15.4
-- Steps:
+- **Runs on**: `macos-latest` (uses default Xcode version)
+- **Triggers**: Push to `main`, Pull requests, Manual dispatch
+- **Steps**:
   1. Checkout code
-  2. Resolve Swift Package dependencies
-  3. Build for iOS Simulator
-  4. Run tests (if test target exists)
+  2. Show Xcode version (for debugging)
+  3. List available simulators
+  4. Build for iOS Simulator (`iPhone 15 Pro`)
+  5. Validate build success
 
 **Key Settings:**
-- Code signing disabled for CI builds
-- Builds for `iPhone 17` simulator
+- Code signing disabled for CI builds (`CODE_SIGNING_REQUIRED=NO`)
+- Builds for `iPhone 15 Pro` simulator (guaranteed to be available)
 - Uses `Debug` configuration
+- No test execution (focuses on build validation only)
 
 ### TestFlight Distribution
 
